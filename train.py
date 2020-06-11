@@ -21,7 +21,7 @@ from dataset import TweetDataset
 from model import TweetModel
 import argparse
 
-
+from torch.utils.data import RandomSampler, SequentialSampler
 
 parser = argparse.ArgumentParser(description='robert4qa')
 parser.add_argument('--max_len', type=int, default=160,
@@ -38,6 +38,9 @@ parser.add_argument('--patience', type=int, default=3,
                     help='patience')
 parser.add_argument('--num_warmup_steps', type=int, default=200,
                     help='num_warmup_steps')
+parser.add_argument('--shuffle', action='store_true',
+                    help='shuffle or not')
+
 
 args = parser.parse_args()
 args.parallel = True
@@ -160,11 +163,6 @@ def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, val
         tokenizer = tokenizer,
         max_len = max_len
     )
-    train_data_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size = train_batch_size,
-        num_workers = 4
-    )
     # 验证集
     valid_dataset = TweetDataset(
         tweet = df_valid.text.values,
@@ -173,10 +171,25 @@ def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, val
         tokenizer = tokenizer,
         max_len = max_len
     )
+
+    train_sampler, valid_sampler = None, None
+    if args.shuffle:
+        train_sampler = RandomSampler(train_dataset)
+        valid_sampler = SequentialSampler(valid_dataset)
+
+    train_data_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size = train_batch_size,
+        num_workers = 4,
+        sampler=train_sampler
+    )
+
+
     valid_data_loader = torch.utils.data.DataLoader(
         valid_dataset,
         batch_size = valid_batch_size,
-        num_workers = 2
+        num_workers = 2,
+        sampler=valid_sampler
     )
 
     device = torch.device("cuda")
