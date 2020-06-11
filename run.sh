@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-train_batch_size=64
-devices=[0,1,2,3]
+train_batch_size=80
+devices=0,1,2,3
 CUDA_VISIBLE_DEVICES=$devices python train.py --train_batch_size $train_batch_size --shuffle --lr 3e-5 --num_warmup_steps 100
 CUDA_VISIBLE_DEVICES=$devices python train.py --train_batch_size $train_batch_size --shuffle --lr 3e-5 --num_warmup_steps 200
 CUDA_VISIBLE_DEVICES=$devices python train.py --train_batch_size $train_batch_size --shuffle --lr 3e-5 --num_warmup_steps 300
