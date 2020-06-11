@@ -18,16 +18,21 @@ import argparse
 parser = argparse.ArgumentParser(description='robert4qa')
 parser.add_argument('--max_len', type=int, default=160,
                     help='maximum length')
-parser.add_argument('--train_batch_size', type=int, default=96,
+parser.add_argument('--train_batch_size', type=int, default=16,
                     help='maximum length')
 parser.add_argument('--valid_batch_size', type=int, default=8,
                     help='maximum length')
-parser.add_argument('--epochs', type=int, default=5,
+parser.add_argument('--epochs', type=int, default=3,
                     help='maximum length')
-
+parser.add_argument('--lr', type=float, default=3e-5,
+                    help='lr')
+parser.add_argument('--patience', type=int, default=2,
+                    help='patience')
+parser.add_argument('--num_warmup_steps', type=int, default=200,
+                    help='num_warmup_steps')
 
 args = parser.parse_args()
-args.parallel = True
+args.parallel = False
 print(vars(args))
 max_len = args.max_len
 train_batch_size = args.train_batch_size
@@ -201,7 +206,10 @@ def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, val
         if es.early_stop:
             print("Early stopping")
             break
-
+    del model, optimizer, scheduler, df_train, df_valid, train_dataset, valid_dataset, train_data_loader, valid_data_loader
+    import gc
+    gc.collect()
+    torch.cuda.empty_cache()
 
 # max_len = 160
 # train_batch_size = 16
