@@ -22,6 +22,7 @@ from model import TweetModel
 import argparse
 
 from torch.utils.data import RandomSampler, SequentialSampler
+from apex import amp
 
 parser = argparse.ArgumentParser(description='robert4qa')
 parser.add_argument('--max_len', type=int, default=160,
@@ -41,6 +42,18 @@ parser.add_argument('--num_warmup_steps', type=int, default=200,
 parser.add_argument('--shuffle', action='store_true',
                     help='shuffle or not')
 
+parser.add_argument(
+    "--fp16",
+    action="store_true",
+    help="Whether to use 16-bit (mixed) precision (through NVIDIA apex) instead of 32-bit",
+)
+parser.add_argument(
+    "--fp16_opt_level",
+    type=str,
+    default="O1",
+    help="For fp16: Apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
+         "See details at https://nvidia.github.io/apex/amp.html",
+)
 
 args = parser.parse_args()
 args.parallel = True
@@ -93,7 +106,12 @@ def train_fn(data_loader, model, optimizer, device, scheduler = None):
         loss = cal_loss(outputs_start, outputs_end, idx_word_start, idx_word_end)
         if args.parallel:
             loss = loss.mean()  # mean() to average on multi-gpu parallel training
-        loss.backward()
+        if args.fp16:
+            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            loss.backward()
+        # loss.backward()
         optimizer.step()
         scheduler.step()
 
@@ -214,6 +232,14 @@ def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, val
         num_training_steps = num_train_steps
     )
 
+    if args.fp16:
+        # try:
+        #     from apex import amp
+        # except ImportError:
+        #     raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+        model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
+
+
     # multi-gpu training (should be after apex fp16 initialization)
     if args.parallel:
         model = torch.nn.DataParallel(model)
@@ -240,6 +266,7 @@ def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, val
 # valid_batch_size = 8
 # epochs = 3
 
+# roberta_path = "./roberta-base"
 roberta_path = "./roberta-base"
 training_file = "./train-kfolds/train_5folds.csv"
 
