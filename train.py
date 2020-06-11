@@ -18,7 +18,7 @@ import argparse
 parser = argparse.ArgumentParser(description='robert4qa')
 parser.add_argument('--max_len', type=int, default=160,
                     help='maximum length')
-parser.add_argument('--train_batch_size', type=int, default=16,
+parser.add_argument('--train_batch_size', type=int, default=96,
                     help='maximum length')
 parser.add_argument('--valid_batch_size', type=int, default=8,
                     help='maximum length')
@@ -131,7 +131,7 @@ def eval_fn(data_loader, model, device):
     print("Jaccard = ", jaccards.avg)
     return jaccards.avg
 
-def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path):
+def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path, lr, patience, num_warmup_steps):
     dfx = pd.read_csv(training_file)
 
     df_train = dfx[dfx.kfold != fold].reset_index(drop = True)
@@ -179,10 +179,10 @@ def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, val
         {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
     ]
 
-    optimizer = AdamW(optimizer_parameters, lr = 3e-5)
+    optimizer = AdamW(optimizer_parameters, lr = lr)
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
-        num_warmup_steps = 200,
+        num_warmup_steps = num_warmup_steps,
         num_training_steps = num_train_steps
     )
 
@@ -190,7 +190,7 @@ def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, val
     if args.parallel:
         model = torch.nn.DataParallel(model)
 
-    es = utils.EarlyStopping(patience = 2, mode = "max")
+    es = utils.EarlyStopping(patience = patience, mode = "max")
     print("Training is Starting for fold", fold)
 
     for epoch in range(epochs):
@@ -218,8 +218,13 @@ tokenizer = tokenizers.ByteLevelBPETokenizer(
     add_prefix_space = True
 )
 
-train(0, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path)
-train(1, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path)
-train(2, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path)
-train(3, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path)
-train(4, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path)
+# train(0, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path)
+# train(1, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path)
+# train(2, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path)
+# train(3, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path)
+# train(4, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path)
+train(0, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path, args.lr, args.patience, args.num_warmup_steps)
+train(1, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path, args.lr, args.patience, args.num_warmup_steps)
+train(2, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path, args.lr, args.patience, args.num_warmup_steps)
+train(3, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path, args.lr, args.patience, args.num_warmup_steps)
+train(4, epochs, training_file, tokenizer, max_len, train_batch_size, valid_batch_size, roberta_path, args.lr, args.patience, args.num_warmup_steps)
