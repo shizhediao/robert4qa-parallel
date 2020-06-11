@@ -13,6 +13,26 @@ from tqdm.autonotebook import tqdm
 import utils
 from dataset import TweetDataset
 from model import TweetModel
+import argparse
+
+parser = argparse.ArgumentParser(description='robert4qa')
+parser.add_argument('--max_len', type=int, default=160,
+                    help='maximum length')
+parser.add_argument('--train_batch_size', type=int, default=16,
+                    help='maximum length')
+parser.add_argument('--valid_batch_size', type=int, default=8,
+                    help='maximum length')
+parser.add_argument('--epochs', type=int, default=5,
+                    help='maximum length')
+
+
+args = parser.parse_args()
+args.parallel = True
+print(vars(args))
+max_len = args.max_len
+train_batch_size = args.train_batch_size
+valid_batch_size = args.valid_batch_size
+epochs = args.epochs
 
 
 def cal_loss(start_logits, end_logits, start_positions, end_positions):
@@ -53,6 +73,8 @@ def train_fn(data_loader, model, optimizer, device, scheduler = None):
         # batch_size x 序列长度(160)，batch_size x 序列长度(192)
         outputs_start, outputs_end = model(input_ids = input_ids, mask = mask, token_type = token_type)
         loss = cal_loss(outputs_start, outputs_end, idx_word_start, idx_word_end)
+        if args.parallel:
+            loss = loss.mean()  # mean() to average on multi-gpu parallel training
         loss.backward()
         optimizer.step()
         scheduler.step()
@@ -164,6 +186,10 @@ def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, val
         num_training_steps = num_train_steps
     )
 
+    # multi-gpu training (should be after apex fp16 initialization)
+    if args.parallel:
+        model = torch.nn.DataParallel(model)
+
     es = utils.EarlyStopping(patience = 2, mode = "max")
     print("Training is Starting for fold", fold)
 
@@ -177,10 +203,10 @@ def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, val
             break
 
 
-max_len = 160
-train_batch_size = 16
-valid_batch_size = 8
-epochs = 3
+# max_len = 160
+# train_batch_size = 16
+# valid_batch_size = 8
+# epochs = 3
 
 roberta_path = "./roberta-base"
 training_file = "./train-kfolds/train_5folds.csv"

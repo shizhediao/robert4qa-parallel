@@ -21,6 +21,7 @@ class TweetModel(transformers.BertPreTrainedModel):
         self.l0 = nn.Linear(768 * 2, 2)
 
     def forward(self, input_ids, mask, token_type):
+        self.lstm.flatten_parameters()
         # bert层数 x batch_size x 序列长度(160) x 768
         _, _, out = self.roberta(input_ids, attention_mask = mask, token_type_ids = token_type)
 
