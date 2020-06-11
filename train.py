@@ -1,3 +1,9 @@
+# Import comet_ml in the top of your file
+from comet_ml import Experiment
+# Create an experiment
+experiment = Experiment(api_key="9gCeZhtoyUQ3YKvSQlzc6wjcH",
+                        project_name="general", workspace="shizhediao")
+
 import numpy as np
 import pandas as pd
 
@@ -15,25 +21,29 @@ from dataset import TweetDataset
 from model import TweetModel
 import argparse
 
+
+
 parser = argparse.ArgumentParser(description='robert4qa')
 parser.add_argument('--max_len', type=int, default=160,
                     help='maximum length')
-parser.add_argument('--train_batch_size', type=int, default=16,
+parser.add_argument('--train_batch_size', type=int, default=96,
                     help='maximum length')
-parser.add_argument('--valid_batch_size', type=int, default=8,
+parser.add_argument('--valid_batch_size', type=int, default=32,
                     help='maximum length')
-parser.add_argument('--epochs', type=int, default=3,
+parser.add_argument('--epochs', type=int, default=10,
                     help='maximum length')
 parser.add_argument('--lr', type=float, default=3e-5,
                     help='lr')
-parser.add_argument('--patience', type=int, default=2,
+parser.add_argument('--patience', type=int, default=3,
                     help='patience')
 parser.add_argument('--num_warmup_steps', type=int, default=200,
                     help='num_warmup_steps')
 
 args = parser.parse_args()
-args.parallel = False
+args.parallel = True
 print(vars(args))
+experiment.log_parameters(vars(args))
+
 max_len = args.max_len
 train_batch_size = args.train_batch_size
 valid_batch_size = args.valid_batch_size
@@ -202,6 +212,7 @@ def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, val
         train_fn(train_data_loader, model, optimizer, device, scheduler = scheduler)
         jaccard = eval_fn(valid_data_loader, model, device)
         print("Jaccard Score = ", jaccard)
+        experiment.log_metric("jaccard", jaccard)
         es(jaccard, model, model_path = f"./bin/model_{fold}.bin")
         if es.early_stop:
             print("Early stopping")
