@@ -8,7 +8,6 @@ class TweetModel(transformers.BertPreTrainedModel):
         super(TweetModel, self).__init__(conf)
 
         # 预训练的roberta模型
-        # self.roberta = transformers.RobertaModel.from_pretrained(roberta_path, config = conf)
         self.roberta = transformers.RobertaModel.from_pretrained(roberta_path, config = conf)
         # self.roberta = AutoModelWithLMHead.from_pretrained("xlm-roberta-large")
 
@@ -16,13 +15,14 @@ class TweetModel(transformers.BertPreTrainedModel):
 
         # bert多层融合
         # self.w0 = nn.Linear(hidden_size * 12, hidden_size * 12)
-        self.w0 = nn.Linear(hidden_size * 13, hidden_size)
+        self.w0 = nn.Linear(hidden_size * 13, hidden_size  * 13)
 
         # roberta-base隐藏状态的维度是768
-        self.lstm = nn.LSTM(input_size = hidden_size, hidden_size = hidden_size, num_layers = 1, bidirectional = True, batch_first = True)
+        self.lstm = nn.LSTM(input_size = hidden_size * 13, hidden_size = hidden_size, num_layers = 1, bidirectional = True, batch_first = True)
 
         # 两维（情感文本首词概率，情感文本末词概率）
         self.l0 = nn.Linear(hidden_size * 2, 2)
+        torch.nn.init.normal_(self.l0.weight, std=0.02)
 
         self.ensemble_weight = nn.Linear(13, 1)
 
