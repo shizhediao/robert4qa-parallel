@@ -152,7 +152,8 @@ def eval_fn(data_loader, model, device):
             # batch_size x 序列长度(192)，batch_size x 序列长度(192)
             outputs_start, outputs_end, loss = model(input_ids=input_ids, mask=mask, token_type=token_type, idx_word_start=idx_word_start, idx_word_end=idx_word_end)
             # loss = cal_loss(outputs_start, outputs_end, idx_word_start, idx_word_end)
-
+            if args.parallel:
+                loss = loss.mean()  # mean() to average on multi-gpu parallel training
             outputs_start = torch.softmax(outputs_start, dim = 1).cpu().detach().numpy()
             outputs_end = torch.softmax(outputs_end, dim = 1).cpu().detach().numpy()
 
