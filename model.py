@@ -2,6 +2,14 @@ import torch
 import torch.nn as nn
 import transformers
 
+
+def cal_loss(start_logits, end_logits, start_positions, end_positions):
+    loss_fn = nn.CrossEntropyLoss()
+    start_loss = loss_fn(start_logits, start_positions)    # 情感文本首词概率
+    end_loss = loss_fn(end_logits, end_positions)    # 情感文本末词概率
+    total_loss = start_loss + end_loss    # 总损失
+    return total_loss
+
 hidden_size = 768
 class TweetModel(transformers.BertPreTrainedModel):
     def __init__(self, roberta_path, conf):
@@ -15,7 +23,7 @@ class TweetModel(transformers.BertPreTrainedModel):
 
         # bert多层融合
         # self.w0 = nn.Linear(hidden_size * 12, hidden_size * 12)
-        self.w0 = nn.Linear(hidden_size * 13, hidden_size  * 13)
+        self.w0 = nn.Linear(hidden_size * 13, hidden_size * 13)
 
         # roberta-base隐藏状态的维度是768
         self.lstm = nn.LSTM(input_size = hidden_size * 13, hidden_size = hidden_size, num_layers = 1, bidirectional = True, batch_first = True)
@@ -27,7 +35,7 @@ class TweetModel(transformers.BertPreTrainedModel):
         self.ensemble_weight = nn.Linear(13, 1)
 
 
-    def forward(self, input_ids, mask, token_type):
+    def forward(self, input_ids, mask, token_type, idx_word_start, idx_word_end):
         self.lstm.flatten_parameters()
         # bert层数 x batch_size x 序列长度(160) x 768 = 13 x 24 x 160 x 768
         _, _, out = self.roberta(input_ids, attention_mask = mask, token_type_ids = token_type)
@@ -57,4 +65,7 @@ class TweetModel(transformers.BertPreTrainedModel):
         # batch_size x 序列长度(160)
         end_logits = end_logits.squeeze(-1)
 
-        return start_logits, end_logits
+        #calculate loss
+        loss = cal_loss(start_logits, end_logits, idx_word_start, idx_word_end)
+
+        return start_logits, end_logits, loss

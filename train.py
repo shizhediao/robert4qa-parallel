@@ -20,9 +20,17 @@ import utils
 from dataset import TweetDataset
 from model import TweetModel
 import argparse
-
+import os
 from torch.utils.data import RandomSampler, SequentialSampler
 from apex import amp
+import datetime
+now_time = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+
+save_path = "./models/bin_"+now_time
+if not os.path.exists("./models"):
+    os.mkdir("./models")
+if not os.path.exists(save_path):
+    os.mkdir(save_path)
 
 parser = argparse.ArgumentParser(description='robert4qa')
 parser.add_argument('--max_len', type=int, default=160,
@@ -66,12 +74,6 @@ valid_batch_size = args.valid_batch_size
 epochs = args.epochs
 
 
-def cal_loss(start_logits, end_logits, start_positions, end_positions):
-    loss_fn = nn.CrossEntropyLoss()
-    start_loss = loss_fn(start_logits, start_positions)    # 情感文本首词概率
-    end_loss = loss_fn(end_logits, end_positions)    # 情感文本末词概率
-    total_loss = start_loss + end_loss    # 总损失
-    return total_loss
 
 def cal_jaccard(tweet, target, idx_start, idx_end, input_offsets):
     if idx_end < idx_start:
@@ -102,8 +104,8 @@ def train_fn(data_loader, model, optimizer, device, scheduler = None):
 
         model.zero_grad()
         # batch_size x 序列长度(160)，batch_size x 序列长度(192)
-        outputs_start, outputs_end = model(input_ids = input_ids, mask = mask, token_type = token_type)
-        loss = cal_loss(outputs_start, outputs_end, idx_word_start, idx_word_end)
+        outputs_start, outputs_end, loss = model(input_ids = input_ids, mask = mask, token_type = token_type, idx_word_start=idx_word_start, idx_word_end=idx_word_end)
+        # loss = cal_loss(outputs_start, outputs_end, idx_word_start, idx_word_end)
         if args.parallel:
             loss = loss.mean()  # mean() to average on multi-gpu parallel training
         if args.fp16:
@@ -148,8 +150,8 @@ def eval_fn(data_loader, model, device):
             input_offsets = d["input_offsets"]
 
             # batch_size x 序列长度(192)，batch_size x 序列长度(192)
-            outputs_start, outputs_end = model(input_ids=input_ids, mask=mask, token_type=token_type)
-            loss = cal_loss(outputs_start, outputs_end, idx_word_start, idx_word_end)
+            outputs_start, outputs_end, loss = model(input_ids=input_ids, mask=mask, token_type=token_type, idx_word_start=idx_word_start, idx_word_end=idx_word_end)
+            # loss = cal_loss(outputs_start, outputs_end, idx_word_start, idx_word_end)
 
             outputs_start = torch.softmax(outputs_start, dim = 1).cpu().detach().numpy()
             outputs_end = torch.softmax(outputs_end, dim = 1).cpu().detach().numpy()
@@ -252,7 +254,7 @@ def train(fold, epochs, training_file, tokenizer, max_len, train_batch_size, val
         jaccard = eval_fn(valid_data_loader, model, device)
         print("Jaccard Score = ", jaccard)
         experiment.log_metric("jaccard", jaccard)
-        es(jaccard, model, model_path = f"./bin/model_{fold}.bin")
+        es(jaccard, model, model_path = f"{save_path}/model_{fold}.bin")
         if es.early_stop:
             print("Early stopping")
             break
